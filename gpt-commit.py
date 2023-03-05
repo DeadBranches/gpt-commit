@@ -5,12 +5,18 @@ import openai
 import os
 import subprocess
 import sys
+import configparser
 
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
 COMMIT_MSG_PROMPT = "Using no more than 50 characters, generate a descriptive commit message from these summaries:"
 PROMPT_CUTOFF = 10000
-openai.organization = os.getenv("OPENAI_ORG_ID")
-openai.api_key = os.environ["OPENAI_API_KEY"]
+
+# Fetch API keys from configuration ini file
+config=configparser.ConfigParser()
+config.read('config/api_keys.ini')
+openai_gpt35key = config.get("openai", "gpt35")
+
+openai.api_key = openai_gpt35key
 
 
 def get_diff():
