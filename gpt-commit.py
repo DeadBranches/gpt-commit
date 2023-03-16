@@ -7,13 +7,22 @@ import subprocess
 import sys
 import configparser
 
+# OpenAI LLM Settings
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
 COMMIT_MSG_PROMPT = "Using no more than 50 characters, generate a descriptive commit message from these summaries:"
 PROMPT_CUTOFF = 10000
 
+# Configuration file config
+# API key location
+config_folder = ".\config"
+config_file = "api_keys.ini"
+# OpenAI GPT3.5-turbo config ini details: "section", "key name" - > [section]\n"key name" = 000000000000
+#openai_key = ("openai", "gpt35")
+
 # Fetch API keys from configuration ini file
 config=configparser.ConfigParser()
-config.read('config/api_keys.ini')
+api_keys=os.path.join(os.path.abspath(config_folder), config_file)
+config.read(api_keys)
 openai_gpt35key = config.get("openai", "gpt35")
 
 openai.api_key = openai_gpt35key
