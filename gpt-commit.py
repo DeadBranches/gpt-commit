@@ -133,9 +133,9 @@ def parse_args():
 
     parser.add_argument(
         "-p",
-        "--print",
+        "--print-message",
         action="store_true",
-        default=True,
+        default=False,
         help="Print message in place of performing commit",
     )
 
@@ -150,9 +150,12 @@ async def main():
         commit_message = await generate_commit_message(diff)
     except UnicodeDecodeError:
         print("gpt-commit does not support binary files", file=sys.stderr)
-        commit_message = "# gpt-commit does not support binary files. Please enter a commit message manually or unstage any binary files."
+        commit_message = (
+            "# gpt-commit does not support binary files. "
+            "Please enter a commit message manually or unstage any binary files."
+        )
 
-    if args.print:
+    if args.print_message:
         print(commit_message)
     else:
         exit(commit(commit_message))
