@@ -5,17 +5,30 @@ import asyncio
 import os
 import subprocess
 import sys
-
+import configparser
 import openai
 
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
-COMMIT_MSG_PROMPT = (
-    "Using no more than 50 characters, "
-    "generate a descriptive commit message from these summaries:"
-)
+COMMIT_MSG_PROMPT = "Using no more than 45 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
 PROMPT_CUTOFF = 10000
-openai.organization = os.getenv("OPENAI_ORG_ID")
-openai.api_key = os.environ["OPENAI_API_KEY"]
+
+# Configuration file config
+# API key location
+config_folder = "config"
+config_file = "api_keys.ini"
+# OpenAI GPT3.5-turbo config ini details: "section", "key name" - > [section]\n"key name" = 000000000000
+# openai_key = ("openai", "gpt35")
+
+# Fetch API keys from configuration ini file
+config = configparser.ConfigParser()
+script_dir = os.path.dirname(os.path.abspath(__file__))
+ini_path = os.path.join(script_dir, config_folder, config_file)
+# api_keys=os.path.join(os.path.abspath(config_folder), config_file)
+print(ini_path)
+config.read(ini_path)
+openai_gpt35key = config.get("openai", "gpt35")
+
+openai.api_key = openai_gpt35key
 
 
 def get_diff():
@@ -72,7 +85,13 @@ def assemble_diffs(parsed_diffs, cutoff):
 async def complete(prompt):
     completion_resp = await openai.ChatCompletion.acreate(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt[: PROMPT_CUTOFF + 100]}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are staff at a software development company assigned to mundane code repository administrative tasks.",
+            },
+            {"role": "user", "content": prompt[: PROMPT_CUTOFF + 100]},
+        ],
         max_tokens=128,
     )
     completion = completion_resp.choices[0].message.content.strip()
@@ -105,7 +124,7 @@ def commit(message):
     # will ignore message if diff is empty
     return subprocess.run(["git", "commit", "--message", message, "--edit"]).returncode
 
-
+  
 def parse_args():
     """
     Extract the CLI arguments from argparse
