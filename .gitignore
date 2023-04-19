@@ -209,3 +209,5 @@ poetry.toml
 # .ini
 config/*.ini
 ./config/*.vscode/
+.vscode/
+*.code-workspace
