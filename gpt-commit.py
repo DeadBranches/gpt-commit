@@ -9,7 +9,7 @@ import configparser
 
 # OpenAI LLM Settings
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
-COMMIT_MSG_PROMPT = "Using no more than 50 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
+COMMIT_MSG_PROMPT = "Using no more than 45 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
 PROMPT_CUTOFF = 10000
 
 # Configuration file config
@@ -17,13 +17,13 @@ PROMPT_CUTOFF = 10000
 config_folder = "config"
 config_file = "api_keys.ini"
 # OpenAI GPT3.5-turbo config ini details: "section", "key name" - > [section]\n"key name" = 000000000000
-#openai_key = ("openai", "gpt35")
+# openai_key = ("openai", "gpt35")
 
 # Fetch API keys from configuration ini file
-config=configparser.ConfigParser()
+config = configparser.ConfigParser()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 ini_path = os.path.join(script_dir, config_folder, config_file)
-#api_keys=os.path.join(os.path.abspath(config_folder), config_file)
+# api_keys=os.path.join(os.path.abspath(config_folder), config_file)
 print(ini_path)
 config.read(ini_path)
 openai_gpt35key = config.get("openai", "gpt35")
@@ -33,8 +33,13 @@ openai.api_key = openai_gpt35key
 
 def get_diff():
     arguments = [
-        "git", "--no-pager", "diff", "--staged", "--ignore-space-change",
-        "--ignore-all-space", "--ignore-blank-lines"
+        "git",
+        "--no-pager",
+        "diff",
+        "--staged",
+        "--ignore-space-change",
+        "--ignore-all-space",
+        "--ignore-blank-lines",
     ]
     diff_process = subprocess.run(arguments, capture_output=True, text=True)
     diff_process.check_returncode()
@@ -43,8 +48,9 @@ def get_diff():
 
 def parse_diff(diff):
     file_diffs = diff.split("\ndiff")
-    file_diffs = [file_diffs[0]
-                  ] + ["\ndiff" + file_diff for file_diff in file_diffs[1:]]
+    file_diffs = [file_diffs[0]] + [
+        "\ndiff" + file_diff for file_diff in file_diffs[1:]
+    ]
     chunked_file_diffs = []
     for file_diff in file_diffs:
         [head, *chunks] = file_diff.split("\n@@")
@@ -56,7 +62,7 @@ def parse_diff(diff):
 def assemble_diffs(parsed_diffs, cutoff):
     # create multiple well-formatted diff strings, each being shorter than cutoff
     assembled_diffs = [""]
-    
+
     def add_chunk(chunk):
         if len(assembled_diffs[-1]) + len(chunk) <= cutoff:
             assembled_diffs[-1] += "\n" + chunk
@@ -64,7 +70,7 @@ def assemble_diffs(parsed_diffs, cutoff):
         else:
             assembled_diffs.append(chunk)
             return False
-    
+
     for head, chunks in parsed_diffs:
         if not chunks:
             add_chunk(head)
@@ -80,12 +86,14 @@ async def complete(prompt):
     completion_resp = await openai.ChatCompletion.acreate(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are staff at a software development company assigned to mundane code repository administrative tasks."},
             {
-            "role": "user",
-            "content": prompt[:PROMPT_CUTOFF + 100]
-        }],
-        max_tokens=148)
+                "role": "system",
+                "content": "You are staff at a software development company assigned to mundane code repository administrative tasks.",
+            },
+            {"role": "user", "content": prompt[: PROMPT_CUTOFF + 100]},
+        ],
+        max_tokens=148,
+    )
     completion = completion_resp.choices[0].message.content.strip()
     return completion
 
@@ -104,17 +112,17 @@ async def generate_commit_message(diff):
     if not diff:
         # no files staged or only whitespace diffs
         return "Fix whitespace"
-    
+
     assembled_diffs = assemble_diffs(parse_diff(diff), PROMPT_CUTOFF)
     summaries = await asyncio.gather(
-        *[summarize_diff(diff) for diff in assembled_diffs])
+        *[summarize_diff(diff) for diff in assembled_diffs]
+    )
     return await summarize_summaries("\n".join(summaries))
 
 
 def commit(message):
     # will ignore message if diff is empty
-    return subprocess.run(["git", "commit", "--message", message,
-                           "--edit"]).returncode
+    return subprocess.run(["git", "commit", "--message", message, "--edit"]).returncode
 
 
 async def main():
@@ -124,7 +132,7 @@ async def main():
     except UnicodeDecodeError:
         print("gpt-commit does not support binary files", file=sys.stderr)
         commit_message = "# gpt-commit does not support binary files. Please enter a commit message manually or unstage any binary files."
-    
+
     if "--print-message" in sys.argv:
         print(commit_message)
     else:
