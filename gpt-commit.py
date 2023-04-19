@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
+import argparse
 import asyncio
-import openai
 import os
 import subprocess
 import sys
 import configparser
+import openai
 
-# OpenAI LLM Settings
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
 COMMIT_MSG_PROMPT = "Using no more than 45 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
 PROMPT_CUTOFF = 10000
@@ -92,7 +92,7 @@ async def complete(prompt):
             },
             {"role": "user", "content": prompt[: PROMPT_CUTOFF + 100]},
         ],
-        max_tokens=148,
+        max_tokens=128,
     )
     completion = completion_resp.choices[0].message.content.strip()
     return completion
@@ -124,8 +124,27 @@ def commit(message):
     # will ignore message if diff is empty
     return subprocess.run(["git", "commit", "--message", message, "--edit"]).returncode
 
+  
+def parse_args():
+    """
+    Extract the CLI arguments from argparse
+    """
+    parser = argparse.ArgumentParser(description="Generate a commit message froma diff")
+
+    parser.add_argument(
+        "-p",
+        "--print",
+        action="store_true",
+        default=True,
+        help="Print message in place of performing commit",
+    )
+
+    return parser.parse_args()
+
 
 async def main():
+    args = parse_args()
+
     try:
         diff = get_diff()
         commit_message = await generate_commit_message(diff)
@@ -133,7 +152,7 @@ async def main():
         print("gpt-commit does not support binary files", file=sys.stderr)
         commit_message = "# gpt-commit does not support binary files. Please enter a commit message manually or unstage any binary files."
 
-    if "--print-message" in sys.argv:
+    if args.print:
         print(commit_message)
     else:
         exit(commit(commit_message))
