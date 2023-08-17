@@ -15,22 +15,34 @@ import logging_utils
 logger = logging.getLogger(__name__)
 
 
-DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
-COMMIT_MSG_PROMPT = "Using no more than 45 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
+# Constants
+DIFF_PROMPT = (
+    "Generate a succinct, conscise, and high-quality summary of the"
+    "following code changes. High quality summaries remove unnecessary details such as "
+    "those which are redundant or obvious. Ensure an accurate and complete reflection of "
+    "the main point and the whole idea while using clear and precise language to "
+    "convey key information.\n\nCode changes:"
+)
+COMMIT_MSG_PROMPT = (
+    "Using no more than 45 characters, generate a descriptive "
+    "commit message title complying with the Conventional Commits specification from "
+    "the following summaries:"
+)
 PROMPT_CUTOFF = 10000
 
 # Configuration file config
 # API key location
-config_folder = "config"
-config_file = "api_keys.ini"
-# OpenAI GPT3.5-turbo config ini details: "section", "key name" - > [section]\n"key name" = 000000000000
+CONFIG_FOLDER = "config"
+CONFIG_FILENAME = "api_keys.ini"
+# OpenAI GPT3.5-turbo config ini details:
+# "section", "key name" - > [section]\n"key name" = 000000000000
 # openai_key = ("openai", "gpt35")
 
 # Fetch API keys from configuration ini file
 config = configparser.ConfigParser()
 script_dir = os.path.dirname(os.path.abspath(__file__))
-ini_path = os.path.join(script_dir, config_folder, config_file)
-# api_keys=os.path.join(os.path.abspath(config_folder), config_file)
+ini_path = os.path.join(script_dir, CONFIG_FOLDER, CONFIG_FILENAME)
+# api_keys=os.path.join(os.path.abspath(CONFIG_FOLDER), CONFIG_FILENAME)
 print(ini_path)
 config.read(ini_path)
 openai_gpt35key = config.get("openai", "gpt35")
