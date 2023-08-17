@@ -25,7 +25,7 @@ DIFF_PROMPT = (
 )
 COMMIT_TITLE_PROMPT = "Using the provided code change summaries, write one repository commit message in the Conventional Commits specification v1.0.0 format. The commit MUST be prefixed with a type followed by the REQUIRED terminal colon and space. Then, a description MUST immediately follow the colon and space after the type prefix. The description is a short summary of the code changes, e.g., `fix: array parsing issue when multiple spaces were contained in string`\n\nCode change summaries:\n"
 
-COMMIT_BODY_PROMPT = "From the following commit type, description, and code change summaries, write a longer commit body according to the Conventional Commits specification v1.0.0 standard. A commit body follows the commit description and provdes additional information about the code changes. A commit body is free-form and MAY consist of any number of newline separated paragraphs."
+COMMIT_BODY_PROMPT = "From the following commit type, description, and code change summaries, write a longer commit body according to the Conventional Commits specification v1.0.0 standard. A commit body follows the commit description and provdes additional information about the code changes. A commit body is free-form and MAY consist of any number of newline separated paragraphs. A commit body excludes the type and description."
 
 PROMPT_CUTOFF = 10000
 
@@ -240,7 +240,6 @@ async def main():
         code_change_summaries = await summarize_changes(diff)
         commit_message = await generate_commit_message(code_change_summaries)
         commit_body = await generate_commit_body(commit_message, code_change_summaries)
-        print(commit_body)
     except UnicodeDecodeError:
         print("gpt-commit does not support binary files", file=sys.stderr)
         commit_message = (
