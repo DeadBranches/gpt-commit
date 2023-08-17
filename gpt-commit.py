@@ -34,15 +34,12 @@ PROMPT_CUTOFF = 10000
 # API key location
 CONFIG_FOLDER = "config"
 CONFIG_FILENAME = "api_keys.ini"
-# OpenAI GPT3.5-turbo config ini details:
-# "section", "key name" - > [section]\n"key name" = 000000000000
-# openai_key = ("openai", "gpt35")
 
 # Fetch API keys from configuration ini file
 config = configparser.ConfigParser()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 ini_path = os.path.join(script_dir, CONFIG_FOLDER, CONFIG_FILENAME)
-# api_keys=os.path.join(os.path.abspath(CONFIG_FOLDER), CONFIG_FILENAME)
+
 print(ini_path)
 config.read(ini_path)
 openai_gpt35key = config.get("openai", "gpt35")
