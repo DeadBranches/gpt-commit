@@ -8,6 +8,13 @@ import sys
 import configparser
 import openai
 
+import logging
+
+import logging_utils
+
+logger = logging.getLogger(__name__)
+
+
 DIFF_PROMPT = "Generate a succinct summary of the following code changes:"
 COMMIT_MSG_PROMPT = "Using no more than 45 characters, generate a descriptive commit message title complying with the Conventional Commits specification from the following summaries:"
 PROMPT_CUTOFF = 10000
@@ -100,12 +107,22 @@ async def complete(prompt):
 
 async def summarize_diff(diff):
     assert diff
-    return await complete(DIFF_PROMPT + "\n\n" + diff + "\n\n")
+    result = await complete(DIFF_PROMPT + "\n\n" + diff + "\n\n")
+    logger.debug("[summarize_diff()]\nDiff summary:\n%s\n\n", result)
+
+    return result
 
 
 async def summarize_summaries(summaries):
     assert summaries
-    return await complete(COMMIT_MSG_PROMPT + "\n\n" + summaries + "\n\n")
+    logger.info("[summarize_summaries()] ----------\n")
+    logger.debug(
+        "Commit message prompt: %s\nSummaries: %s\n\n", COMMIT_MSG_PROMPT, summaries
+    )
+    result = await complete(COMMIT_MSG_PROMPT + "\n\n" + summaries + "\n\n")
+    logger.debug("Final completion:\n%s\n\n", result)
+
+    return result
 
 
 async def generate_commit_message(diff):
@@ -114,9 +131,14 @@ async def generate_commit_message(diff):
         return "Fix whitespace"
 
     assembled_diffs = assemble_diffs(parse_diff(diff), PROMPT_CUTOFF)
+    logger.info(
+        "[generate_commit_message()]\nAssembled file differences:\n%s\n\n",
+        assemble_diffs,
+    )
     summaries = await asyncio.gather(
         *[summarize_diff(diff) for diff in assembled_diffs]
     )
+    logger.info("[generate_commit_message()]\nGathered summaries:\n%s\n\n", summaries)
     return await summarize_summaries("\n".join(summaries))
 
 
@@ -124,12 +146,14 @@ def commit(message):
     # will ignore message if diff is empty
     return subprocess.run(["git", "commit", "--message", message, "--edit"]).returncode
 
-  
+
 def parse_args():
     """
     Extract the CLI arguments from argparse
     """
-    parser = argparse.ArgumentParser(description="Generate a commit message froma diff")
+    parser = argparse.ArgumentParser(
+        description="Generate a commit message from a diff"
+    )
 
     parser.add_argument(
         "-p",
@@ -139,11 +163,22 @@ def parse_args():
         help="Print message in place of performing commit",
     )
 
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Log debug messages",
+    )
+
     return parser.parse_args()
 
 
 async def main():
     args = parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
 
     try:
         diff = get_diff()
