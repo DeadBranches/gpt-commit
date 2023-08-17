@@ -17,17 +17,16 @@ logger = logging.getLogger(__name__)
 
 # Constants
 DIFF_PROMPT = (
-    "Generate a succinct, conscise, and high-quality summary of the"
-    "following code changes. High quality summaries remove unnecessary details such as "
-    "those which are redundant or obvious. Ensure an accurate and complete reflection of "
-    "the main point and the whole idea while using clear and precise language to "
-    "convey key information.\n\nCode changes:"
+    "Generate succinct, conscise, and high-quality summaries of the "
+    "following code changes. High quality summaries remove unnecessary, "
+    "redundant, or obvious details. Use clear, precise, and non-self "
+    "referential language."
+    "\n\nCode changes:\n"
 )
-COMMIT_MSG_PROMPT = (
-    "Using no more than 45 characters, generate a descriptive "
-    "commit message title complying with the Conventional Commits specification from "
-    "the following summaries:"
-)
+COMMIT_TITLE_PROMPT = "Using the provided code change summaries, write one repository commit message in the Conventional Commits specification v1.0.0 format. The commit MUST be prefixed with a type followed by the REQUIRED terminal colon and space. Then, a description MUST immediately follow the colon and space after the type prefix. The description is a short summary of the code changes, e.g., `fix: array parsing issue when multiple spaces were contained in string`\n\nCode change summaries:\n"
+
+COMMIT_BODY_PROMPT = "From the following commit type, description, and code change summaries, write a longer commit body according to the Conventional Commits specification v1.0.0 standard. A commit body follows the commit description and provdes additional information about the code changes. A commit body is free-form and MAY consist of any number of newline separated paragraphs."
+
 PROMPT_CUTOFF = 10000
 
 # Configuration file config
@@ -101,10 +100,11 @@ def assemble_diffs(parsed_diffs, cutoff):
 async def complete(prompt):
     completion_resp = await openai.ChatCompletion.acreate(
         model="gpt-3.5-turbo",
+        temperature=0.3,
         messages=[
             {
                 "role": "system",
-                "content": "You are staff at a software development company assigned to mundane code repository administrative tasks.",
+                "content": "You are a senior software engineer at a software development company. Your current assignment is to perform mundane administrative tasks relating to maintaining a well-organized company github code repositories",
             },
             {"role": "user", "content": prompt[: PROMPT_CUTOFF + 100]},
         ],
@@ -117,18 +117,42 @@ async def complete(prompt):
 async def summarize_diff(diff):
     assert diff
     result = await complete(DIFF_PROMPT + "\n\n" + diff + "\n\n")
-    logger.debug("[summarize_diff()]\nDiff summary:\n%s\n\n", result)
+
+    # logging
+    logger.debug("[summarize_diff()]\n  Code diff summaries:\n%s\n\n", result)
 
     return result
 
 
 async def summarize_summaries(summaries):
     assert summaries
+    result = await complete(COMMIT_TITLE_PROMPT + "\n\n" + summaries + "\n\n")
+
+    # logging
     logger.info("[summarize_summaries()] ----------\n")
     logger.debug(
-        "Commit message prompt: %s\nSummaries: %s\n\n", COMMIT_MSG_PROMPT, summaries
+        "Commit message prompt: %s\nSummaries: %s\n\n", COMMIT_TITLE_PROMPT, summaries
     )
-    result = await complete(COMMIT_MSG_PROMPT + "\n\n" + summaries + "\n\n")
+    logger.debug("Final completion:\n%s\n\n", result)
+
+    return result
+
+
+async def generate_commit_body(type_and_description, summaries):
+    assert summaries
+    result = await complete(
+        f"{COMMIT_BODY_PROMPT}\n\n"
+        f"Type: {type_and_description}\n"
+        f"Code change summaries: {summaries}\n\n"
+    )
+
+    # logging
+    logger.info("[generate_commit_body()] ----------\n")
+    logger.debug(
+        "Commit body prompt: %s\nFinal commit body: %s\n---------------------\n\n",
+        COMMIT_BODY_PROMPT,
+        result,
+    )
     logger.debug("Final completion:\n%s\n\n", result)
 
     return result
@@ -140,14 +164,21 @@ async def summarize_changes(diff):
         return "Fix whitespace"
 
     assembled_diffs = assemble_diffs(parse_diff(diff), PROMPT_CUTOFF)
-    logger.info(
-        "[generate_commit_message()]\nAssembled file differences:\n%s\n\n",
-        assemble_diffs,
-    )
+    diff_list = [diff for diff in assembled_diffs]
     summaries = await asyncio.gather(
         *[summarize_diff(diff) for diff in assembled_diffs]
     )
-    logger.info("[generate_commit_message()]\nGathered summaries:\n%s\n\n", summaries)
+
+    # Logging
+    logger.info(
+        "[summarize_changes()]\nAssembled file differences:\n%s\n\n",
+        assemble_diffs,
+    )
+    logger.info(
+        "[summarize_changes()]\nDiff list:\n%s\n\n",
+        diff_list,
+    )
+    logger.info("[summarize_changes()]\nGathered summaries:\n%s\n\n", summaries)
 
     return summaries
 
@@ -156,13 +187,17 @@ async def generate_commit_message(summaries):
     return await summarize_summaries("\n".join(summaries))
 
 
-def commit(message, changes):
+def commit(message, body):
     # will ignore message if diff is empty
-    commit_command = ["git", "commit", "--edit", "--message", message]
-
-    for change in changes:
-        commit_command.append("--message")
-        commit_command.append(change)
+    commit_command = [
+        "git",
+        "commit",
+        "--edit",
+        "--message",
+        message,
+        "--message",
+        body,
+    ]
 
     return subprocess.run(commit_command).returncode
 
@@ -202,8 +237,10 @@ async def main():
 
     try:
         diff = get_diff()
-        change_summaries = await summarize_changes(diff)
-        commit_message = await generate_commit_message(change_summaries)
+        code_change_summaries = await summarize_changes(diff)
+        commit_message = await generate_commit_message(code_change_summaries)
+        commit_body = await generate_commit_body(commit_message, code_change_summaries)
+        print(commit_body)
     except UnicodeDecodeError:
         print("gpt-commit does not support binary files", file=sys.stderr)
         commit_message = (
@@ -214,7 +251,7 @@ async def main():
     if args.print_message:
         print(commit_message)
     else:
-        exit(commit(commit_message, change_summaries))
+        exit(commit(commit_message, commit_body))
 
 
 if __name__ == "__main__":
