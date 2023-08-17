@@ -1,6 +1,6 @@
 # gpt-commit
 
-Generate commit messages using GPT-3. To use `gpt-commit`, simply invoke it whenever you'd use `git commit`. Git will prompt you to edit the generated commit message.
+Generate commit messages using GPT-3.5-turbo. To use `gpt-commit`, simply invoke it whenever you'd use `git commit`. Git will prompt you to edit the generated commit message.
 
 ```
 git add .

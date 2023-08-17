@@ -125,7 +125,7 @@ async def summarize_summaries(summaries):
     return result
 
 
-async def generate_commit_message(diff):
+async def summarize_changes(diff):
     if not diff:
         # no files staged or only whitespace diffs
         return "Fix whitespace"
@@ -139,12 +139,23 @@ async def generate_commit_message(diff):
         *[summarize_diff(diff) for diff in assembled_diffs]
     )
     logger.info("[generate_commit_message()]\nGathered summaries:\n%s\n\n", summaries)
+
+    return summaries
+
+
+async def generate_commit_message(summaries):
     return await summarize_summaries("\n".join(summaries))
 
 
-def commit(message):
+def commit(message, changes):
     # will ignore message if diff is empty
-    return subprocess.run(["git", "commit", "--message", message, "--edit"]).returncode
+    commit_command = ["git", "commit", "--edit", "--message", message]
+
+    for change in changes:
+        commit_command.append("--message")
+        commit_command.append(change)
+
+    return subprocess.run(commit_command).returncode
 
 
 def parse_args():
@@ -182,7 +193,8 @@ async def main():
 
     try:
         diff = get_diff()
-        commit_message = await generate_commit_message(diff)
+        change_summaries = await summarize_changes(diff)
+        commit_message = await generate_commit_message(change_summaries)
     except UnicodeDecodeError:
         print("gpt-commit does not support binary files", file=sys.stderr)
         commit_message = (
@@ -193,7 +205,7 @@ async def main():
     if args.print_message:
         print(commit_message)
     else:
-        exit(commit(commit_message))
+        exit(commit(commit_message, change_summaries))
 
 
 if __name__ == "__main__":
