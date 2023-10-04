@@ -6,9 +6,9 @@ import os
 import subprocess
 import sys
 import configparser
-import openai
-
 import logging
+
+import openai
 
 import logging_utils
 
@@ -23,9 +23,25 @@ DIFF_PROMPT = (
     "referential language."
     "\n\nCode changes:\n"
 )
-COMMIT_TITLE_PROMPT = "Using the provided code change summaries, write one repository commit message in the Conventional Commits specification v1.0.0 format. The commit MUST be prefixed with a type followed by the REQUIRED terminal colon and space. Then, a description MUST immediately follow the colon and space after the type prefix. The description is a short summary of the code changes, e.g., `fix: array parsing issue when multiple spaces were contained in string`\n\nCode change summaries:\n"
 
-COMMIT_BODY_PROMPT = "From the following commit type, description, and code change summaries, write a longer commit body according to the Conventional Commits specification v1.0.0 standard. A commit body follows the commit description and provdes additional information about the code changes. A commit body is free-form and MAY consist of any number of newline separated paragraphs. A commit body excludes the type and description."
+COMMIT_TITLE_PROMPT = (
+    "Using the provided code change summaries, write one "
+    "repository commit message in the Conventional Commits specification "
+    "v1.0.0 format. The commit MUST be prefixed with a type followed by "
+    "the REQUIRED terminal colon and space. Then, a description MUST "
+    "immediately follow the colon and space after the type prefix. The "
+    "description is a short summary of the code changes, e.g., `fix: array "
+    "parsing issue when multiple spaces were contained in string`\n\nCode change summaries:\n"
+)
+
+COMMIT_BODY_PROMPT = (
+    "From the following commit type, description, and code change summaries, "
+    "write a longer commit body according to the Conventional Commits "
+    "specification v1.0.0 standard. A commit body follows the commit "
+    "description and provdes additional information about the code changes. A "
+    "commit body is free-form and MAY consist of any number of newline "
+    "separated paragraphs. A commit body excludes the type and description."
+)
 
 PROMPT_CUTOFF = 10000
 
@@ -39,7 +55,7 @@ config = configparser.ConfigParser()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 ini_path = os.path.join(script_dir, CONFIG_FOLDER, CONFIG_FILENAME)
 
-print(ini_path)
+# print(ini_path)
 config.read(ini_path)
 openai_gpt35key = config.get("openai", "gpt35")
 
@@ -118,22 +134,12 @@ async def summarize_diff(diff):
     assert diff
     result = await complete(DIFF_PROMPT + "\n\n" + diff + "\n\n")
 
-    # logging
-    logger.debug("[summarize_diff()]\n  Code diff summaries:\n%s\n\n", result)
-
     return result
 
 
 async def summarize_summaries(summaries):
     assert summaries
     result = await complete(COMMIT_TITLE_PROMPT + "\n\n" + summaries + "\n\n")
-
-    # logging
-    logger.info("[summarize_summaries()] ----------\n")
-    logger.debug(
-        "Commit message prompt: %s\nSummaries: %s\n\n", COMMIT_TITLE_PROMPT, summaries
-    )
-    logger.debug("Final completion:\n%s\n\n", result)
 
     return result
 
@@ -145,15 +151,6 @@ async def generate_commit_body(type_and_description, summaries):
         f"Type: {type_and_description}\n"
         f"Code change summaries: {summaries}\n\n"
     )
-
-    # logging
-    logger.info("[generate_commit_body()] ----------\n")
-    logger.debug(
-        "Commit body prompt: %s\nFinal commit body: %s\n---------------------\n\n",
-        COMMIT_BODY_PROMPT,
-        result,
-    )
-    logger.debug("Final completion:\n%s\n\n", result)
 
     return result
 
@@ -168,17 +165,6 @@ async def summarize_changes(diff):
     summaries = await asyncio.gather(
         *[summarize_diff(diff) for diff in assembled_diffs]
     )
-
-    # Logging
-    logger.info(
-        "[summarize_changes()]\nAssembled file differences:\n%s\n\n",
-        assemble_diffs,
-    )
-    logger.info(
-        "[summarize_changes()]\nDiff list:\n%s\n\n",
-        diff_list,
-    )
-    logger.info("[summarize_changes()]\nGathered summaries:\n%s\n\n", summaries)
 
     return summaries
 
@@ -211,11 +197,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        "-p",
-        "--print-message",
+        "-r",
+        "--dry-run",
         action="store_true",
         default=False,
-        help="Print message in place of performing commit",
+        help="Generate a commit message and print it to the console instead of running git commit.",
     )
 
     parser.add_argument(
@@ -247,7 +233,7 @@ async def main():
             "Please enter a commit message manually or unstage any binary files."
         )
 
-    if args.print_message:
+    if args.dry_run:
         print(commit_message)
     else:
         exit(commit(commit_message, commit_body))
