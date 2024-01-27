@@ -1,0 +1,1 @@
+Refactor generate_commit_body function to use prompt variable instead of result

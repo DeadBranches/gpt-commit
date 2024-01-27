@@ -1,0 +1,14 @@
+`````plain_text
+@@ -163,12 +170,12 @@ def commit(message, body):
+ #       commit_body = await generate_commit_body(commit_message, code_change_summaries)
+ async def generate_commit_body(type_and_description, summaries):
+     assert summaries
+-    result = await complete(
++    prompt = (
+         f"{COMMIT_BODY_PROMPT}\n\n"
+         f"Type: {type_and_description}\n"
+         f"Code change summaries: {summaries}\n\n"
+     )
+-    return result
++    return await complete(prompt)
+`````
